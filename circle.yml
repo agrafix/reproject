@@ -12,5 +12,5 @@ dependencies:
 
 test:
   override:
-    - stack test --pedantic
-    - stack haddock
+    - stack build --pedantic --haddock
+    - stack test
