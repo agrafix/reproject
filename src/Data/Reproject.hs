@@ -98,6 +98,25 @@ data Rec (r :: [(Symbol, *)]) where
     RNil :: Rec '[]
     RCons :: KnownSymbol s => LblProxy s -> v -> Rec xs -> Rec ('(s, v) ': xs)
 
+instance Eq (Rec '[]) where
+    _ == _ = True
+
+instance (Eq v, Eq (Rec xs)) => Eq (Rec ('(s, v) ': xs)) where
+    (RCons _ v vs) == (RCons _ q qs) = q == v && qs == vs
+
+instance Show (Rec '[]) where
+    showsPrec d RNil =
+        showParen (d > 10) $ showString "RNil"
+
+instance (Show v, Show (Rec xs)) => Show (Rec ('(s, v) ': xs)) where
+    showsPrec d (RCons prx v vs) =
+        showParen (d > 5) $
+           showsPrec 6 (symbolVal prx ++ " := " ++ show v) .
+           showString " <:> " .
+           showsPrec 6 vs
+
+deriving instance Typeable Rec
+
 loadFields :: forall a v t. HasProj a v t => t -> Projection t a v -> Rec (MakeTuple a v)
 loadFields ty pro =
     case pro of
