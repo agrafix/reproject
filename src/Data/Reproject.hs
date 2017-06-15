@@ -182,11 +182,21 @@ data AnyProj t
     = forall x. (Typeable x, HasProj x t) =>
     AnyProj
     { unAnyProj :: Projection t x }
+    deriving (Typeable)
+
+deriving instance Show (AnyProj t)
+
+instance Typeable t => Eq (AnyProj t) where
+    (AnyProj a) == (AnyProj b) =
+        case cast a of
+            Just a1 -> a1 == b
+            Nothing -> False
 
 data AnyRec t
-    = forall x. Typeable x =>
+    = forall x. (Typeable x) =>
     AnyRec
     { unAnyRec :: Rec t x }
+    deriving (Typeable)
 
 runAnyProj :: t -> AnyProj t -> AnyRec t
 runAnyProj ty (AnyProj p) =
