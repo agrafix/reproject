@@ -30,5 +30,5 @@ mkSingleDecl :: Name -> (Name, Strict, Type) -> Q [Dec]
 mkSingleDecl n (name, _, ty) =
     [d|
      instance Proj $(litT (strTyLit (nameBase name))) $(pure ty) $(conT n) where
-         applyProj LblProxy = $(varE name)
+         applyProj Proxy = $(varE name)
      |]

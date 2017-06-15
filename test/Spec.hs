@@ -18,7 +18,7 @@ data SomeType
 $(deriveFieldProjections ''SomeType)
 
 instance Proj "st_custom" Bool SomeType where
-    applyProj LblProxy = not . st_bar
+    applyProj Proxy = not . st_bar
 
 getOne :: Projection SomeType '["st_foo"] '[Int]
 getOne = #st_foo @@ ProjNil
