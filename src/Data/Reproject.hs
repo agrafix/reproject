@@ -36,6 +36,7 @@ class Proj (label :: Symbol) ty where
     type ProjVal label ty :: *
     applyProj :: Proxy label -> ty -> ProjVal label ty
 
+-- | A list of projections to be applied to a type
 data Projection t (a :: [Symbol]) where
     ProjNil :: Projection t '[]
     Combine ::
@@ -44,6 +45,7 @@ data Projection t (a :: [Symbol]) where
         -> Projection t b
         -> Projection t (a ': b)
 
+-- | Infix alias for 'Combine'
 (@@) :: (KnownSymbol a, Proj a t, Cons a (ProjVal a t) (MakeTuple t b))
         => Proxy (a :: Symbol)
         -> Projection t b
@@ -80,10 +82,13 @@ instance (Proj a t, KnownSymbol a, Read (Projection t as), Cons a (ProjVal a t) 
                  pure (Combine prxy more)
           upPrec = 5
 
+-- | Construct a constraint that asserts that for all labels a projection for
+-- type t exists
 type family HasProj (a :: [Symbol]) t :: Constraint where
     HasProj '[] t = 'True ~ 'True
     HasProj (x ': xs) t = (Proj x t, HasProj xs t)
 
+-- | Build a "Labels" compatible tuple from a list of projections
 type family MakeTuple t k where
     MakeTuple t '[] = ()
     MakeTuple t (x ': xs) = Consed x (ProjVal x t) (MakeTuple t xs)
@@ -95,8 +100,11 @@ loadFields ty pro =
       Combine (lbl :: Proxy sym) (p2 :: Projection t b) ->
           cons (lbl := applyProj (Proxy :: Proxy sym) ty) (loadFields ty p2)
 
+-- | Apply all projections to a type and return them in a "Labels" compatible tuple. USe
+-- 'projVal' to read single projections from it. Using OverloadedLabels is advised.
 proj :: forall a t r. (HasProj a t, r ~ MakeTuple t a) => Projection t a -> t -> r
 proj = flip loadFields
 
+-- | Get a projected value from a "Labels" compatible tuple. Alias for 'get'
 projVal :: Has label value record => Proxy label -> record -> value
 projVal = get

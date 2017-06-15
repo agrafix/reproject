@@ -17,6 +17,8 @@ getRF' :: Con -> [(String, [(Name, Strict, Type)])]
 getRF' (RecC name fields) = [(nameBase name, fields)]
 getRF' _ = []
 
+-- | Derive record projections for a type. This gives you projections with the same
+-- name as the field accessor
 deriveFieldProjections :: Name -> Q [Dec]
 deriveFieldProjections n =
     do rfs <- fmap getRecordFields $ reify n
