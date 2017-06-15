@@ -40,11 +40,6 @@ instance Proj "st_bar" Bool SomeType where
 instance Proj "st_custom" Bool SomeType where
     applyProj Proxy = not . st_bar
 
-type family Append (a :: [k]) (b :: [k]) where
-    Append x '[] = x
-    Append '[] x = x
-    Append (x ': xs) ys = (x ': Append xs ys)
-
 data Projection t (a :: [Symbol]) (v :: [*]) where
     Project :: (KnownSymbol a, Proj a v t) => Proxy (a :: Symbol) -> Projection t '[a] '[v]
     Combine ::
@@ -53,15 +48,15 @@ data Projection t (a :: [Symbol]) (v :: [*]) where
         -> Projection t b w
         -> Projection t (a ': b) (v ': w)
 
-type family HasConstr (a :: [Symbol]) (v :: [*]) t :: Constraint where
-    HasConstr '[] '[] t = True ~ True
-    HasConstr (x ': xs) (y ': ys) t = (Proj x y t, HasConstr xs ys t)
+type family HasProj (a :: [Symbol]) (v :: [*]) t :: Constraint where
+    HasProj '[] '[] t = True ~ True
+    HasProj (x ': xs) (y ': ys) t = (Proj x y t, HasProj xs ys t)
 
 type family MakeTuple k v where
     MakeTuple '[] '[] = ()
     MakeTuple (x ': xs) (y ': ys) = Consed x y (MakeTuple xs ys)
 
-loadFields :: forall a v t. (HasConstr a v t) => t -> Projection t a v -> MakeTuple a v
+loadFields :: forall a v t. (HasProj a v t) => t -> Projection t a v -> MakeTuple a v
 loadFields ty pro =
     case pro of
       Project (lbl :: Proxy sym) ->
@@ -69,7 +64,7 @@ loadFields ty pro =
       Combine (lbl :: Proxy sym) (p2 :: Projection t b w) ->
           cons (lbl := applyProj (Proxy :: Proxy sym) ty) (loadFields ty p2)
 
-proj :: forall a v t r. (HasConstr a v t, r ~ MakeTuple a v) => t -> Projection t a v -> r
+proj :: forall a v t r. (HasProj a v t, r ~ MakeTuple a v) => t -> Projection t a v -> r
 proj = loadFields
 
 getOne :: Projection SomeType '["st_foo"] '[Int]
