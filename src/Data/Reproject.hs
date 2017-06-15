@@ -18,11 +18,11 @@
 module Data.Reproject
     ( Proj(..)
     , Projection(..)
-    , HasProj, MakeTuple
+    , HasProj
     , proj, projVal
     , (@@)
       -- * Helpers
-    , LblProxy(..), ReadRec(..), RecValTy, IsEqLabel
+    , LblProxy(..), ReadRec(..), RecValTy, IsEqLabel, Rec(..)
     )
 where
 
@@ -89,26 +89,21 @@ type family HasProj (a :: [Symbol]) (v :: [*]) t = (r :: Constraint) where
     HasProj '[] '[] t = 'True ~ 'True
     HasProj (x ': xs) (y ': ys) t = (Proj x y t, HasProj xs ys t)
 
--- | Tuple containing information about record field types
-type family MakeTuple (k :: [Symbol]) (v :: [*]) = (r :: [(Symbol, *)]) | r -> k v where
-    MakeTuple '[] '[] = '[]
-    MakeTuple (x ': xs) (y ': ys) = ('(x, y) ': MakeTuple xs ys)
+data Rec (labels :: [Symbol]) (types :: [*]) where
+    RNil :: Rec '[] '[]
+    RCons :: KnownSymbol s => LblProxy s -> v -> Rec ss vs -> Rec (s ': ss) (v ': vs)
 
-data Rec (r :: [(Symbol, *)]) where
-    RNil :: Rec '[]
-    RCons :: KnownSymbol s => LblProxy s -> v -> Rec xs -> Rec ('(s, v) ': xs)
-
-instance Eq (Rec '[]) where
+instance Eq (Rec c '[]) where
     _ == _ = True
 
-instance (Eq v, Eq (Rec xs)) => Eq (Rec ('(s, v) ': xs)) where
+instance (Eq v, Eq (Rec ls vs)) => Eq (Rec (l ': ls) (v ': vs)) where
     (RCons _ v vs) == (RCons _ q qs) = q == v && qs == vs
 
-instance Show (Rec '[]) where
+instance Show (Rec c '[]) where
     showsPrec d RNil =
         showParen (d > 10) $ showString "RNil"
 
-instance (Show v, Show (Rec xs)) => Show (Rec ('(s, v) ': xs)) where
+instance (Show v, Show (Rec ls vs)) => Show (Rec (l ': ls) (v ': vs)) where
     showsPrec d (RCons prx v vs) =
         showParen (d > 5) $
            showsPrec 6 (symbolVal prx ++ " := " ++ show v) .
@@ -117,7 +112,11 @@ instance (Show v, Show (Rec xs)) => Show (Rec ('(s, v) ': xs)) where
 
 deriving instance Typeable Rec
 
-loadFields :: forall a v t. HasProj a v t => t -> Projection t a v -> Rec (MakeTuple a v)
+type family AllHave (c :: * -> Constraint) (xs :: [*]) :: Constraint where
+    AllHave c '[] = 'True ~ 'True
+    AllHave c (x ': xs) = (c x, AllHave c xs)
+
+loadFields :: forall a v t. (HasProj a v t) => t -> Projection t a v -> Rec a v
 loadFields ty pro =
     case pro of
       ProjNil -> RNil
@@ -126,12 +125,12 @@ loadFields ty pro =
 
 -- | Apply all projections to a type and return them in a "Labels" compatible tuple. USe
 -- 'projVal' to read single projections from it. Using OverloadedLabels is advised.
-proj :: forall a v t. (HasProj a v t) => Projection t a v -> t -> Rec (MakeTuple a v)
+proj :: forall a v t. (HasProj a v t) => Projection t a v -> t -> Rec a v
 proj = flip loadFields
 
-type family RecValTy label (r :: [(Symbol, *)]) where
-    RecValTy label ('(label, t) ': as) = t
-    RecValTy label ('(foo, bar) ': as) = RecValTy label as
+type family RecValTy label (r :: [Symbol]) (v :: [*]) where
+    RecValTy label (label ': as) (t ': bs) = t
+    RecValTy label (foo ': as) (t ': bs) = RecValTy label as bs
 
 type family IsEqLabel (label :: Symbol) (label2 :: Symbol) = (r :: Bool) where
     IsEqLabel l l = 'True
@@ -139,9 +138,9 @@ type family IsEqLabel (label :: Symbol) (label2 :: Symbol) = (r :: Bool) where
 
 -- | Read a projection from a projection record
 projVal ::
-    forall label key r more v.
-    ( ReadRec label (IsEqLabel key label) (Rec ('(key, r) : more)) v
-    ) => LblProxy label -> Rec ('(key, r) ': more) -> v
+    forall label key r more vmore v.
+    ( ReadRec label (IsEqLabel key label) (Rec (key ': more) (r ': vmore)) v
+    ) => LblProxy label -> Rec (key ': more) (r ': vmore) -> v
 projVal l r =
     let stop :: Proxy (IsEqLabel key label)
         stop = Proxy
@@ -150,11 +149,14 @@ projVal l r =
 class ReadRec (label :: Symbol) (eq :: Bool) r v | label r -> v where
     projVal' :: LblProxy label -> p eq -> r -> v
 
-instance (r ~ v) => ReadRec label 'True (Rec ('(key, r) ': more)) v where
+instance (r ~ v) => ReadRec label 'True (Rec (key ': more) (r ': rs)) v where
     projVal' _ _ (RCons _ val _ ) = val
 
-instance (RecValTy label ('(key, r) ': more) ~ v, ReadRec label (IsEqLabel key label) (Rec ('(key, r) ': more)) v) => ReadRec label 'False (Rec (x ': '(key, r) ': more)) v where
-    projVal' x _ (RCons _ _ (more :: Rec ('(key, r) ': more))) =
+instance
+    ( RecValTy label (key ': more) (r ': vmore) ~ v
+    , ReadRec label (IsEqLabel key label) (Rec (key ': more) (r ': vmore)) v
+    ) => ReadRec label 'False (Rec (l1 ': key ': more) (v1 ': r ': vmore)) v where
+    projVal' x _ (RCons _ _ (more :: Rec (key ': more) (r ': vmore))) =
         let stop :: Proxy (IsEqLabel key label)
             stop = Proxy
         in projVal' x stop more

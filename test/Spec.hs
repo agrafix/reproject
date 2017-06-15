@@ -1,13 +1,43 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 import Data.Reproject
 import Data.Reproject.TH
 
+import Data.Typeable
 import Test.Hspec
+
+class SomeClass m where
+    evalRec :: (Typeable req, Typeable res) => DummyCompDef req res -> m (DummyComp req res)
+
+instance SomeClass IO where
+    evalRec DummyCompDef = pure DummyComp
+
+data DummyCompDef req res
+    = DummyCompDef
+
+data DummyComp req res
+    = DummyComp
+
+class Typeable c => RecC c where
+
+dc1 :: forall x t. DummyCompDef (Int, Projection SomeType x t) (Rec x t)
+dc1 = DummyCompDef
+
+dc2 :: (forall x t. DummyComp (Int, Projection SomeType x t) (Rec x t)) -> DummyCompDef Int Bool
+dc2 _ = DummyCompDef
+
+fooFun :: IO ()
+fooFun =
+    do d1 <- evalRec dc1
+       _ <- evalRec (dc2 dc1)
+       pure ()
 
 data SomeType
     = SomeType
