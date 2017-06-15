@@ -3,7 +3,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE TemplateHaskell #-}
 import Data.Reproject
+import Data.Reproject.TH
 
 import Test.Hspec
 
@@ -13,13 +15,7 @@ data SomeType
     , st_bar :: Bool
     }
 
-instance Proj "st_foo" SomeType where
-    type ProjVal "st_foo" SomeType = Int
-    applyProj Proxy = st_foo
-
-instance Proj "st_bar" SomeType where
-    type ProjVal "st_bar" SomeType = Bool
-    applyProj Proxy = st_bar
+$(deriveFieldProjections ''SomeType)
 
 instance Proj "st_custom" SomeType where
     type ProjVal "st_custom" SomeType = Bool
