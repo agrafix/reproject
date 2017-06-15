@@ -29,6 +29,7 @@ deriveFieldProjections n =
 mkSingleDecl :: Name -> (Name, Strict, Type) -> Q [Dec]
 mkSingleDecl n (name, _, ty) =
     [d|
-     instance Proj $(litT (strTyLit (nameBase name))) $(pure ty) $(conT n) where
+     instance Proj $(litT (strTyLit (nameBase name))) $(conT n) where
+         type ProjTy $(litT (strTyLit (nameBase name))) $(conT n) = $(pure ty)
          applyProj LblProxy = $(varE name)
      |]
