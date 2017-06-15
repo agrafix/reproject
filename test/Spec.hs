@@ -15,7 +15,6 @@ import Data.Reproject
 import Data.Reproject.TH
 
 import Data.Typeable
-import GHC.TypeLits
 import Test.Hspec
 
 data SomeType
@@ -70,6 +69,9 @@ main = hspec $
               test3 `shouldBe` True
        it "applies correct projection for custom projections" $
               test4 `shouldBe` False
+       it "should work with the any wrappers" $
+           do r <- fooFun
+              r `shouldBe` True
 
 class SomeClass m where
     evalRec :: (Typeable req, Typeable res) => DummyCompDef req res -> m (DummyComp req res)
@@ -79,57 +81,22 @@ instance SomeClass IO where
 
 data DummyCompDef req res
     = DummyCompDef
-    { fun :: req -> res }
+    { _fun :: req -> res }
 
 data DummyComp req res
     = DummyComp
-    { exec :: req -> res }
+    { _exec :: req -> res }
 
-data AnyProj
-    = forall x. (Typeable x, HasProj x SomeType) =>
-    AnyProj
-    { unAnyProj :: Projection SomeType x }
-
-data AnyRec
-    = forall x. Typeable x =>
-    AnyRec
-    { unAnyRec :: Rec SomeType x }
-
-dc1 :: DummyCompDef AnyProj AnyRec
+dc1 :: DummyCompDef (AnyProj SomeType) (AnyRec SomeType)
 dc1 = DummyCompDef $ \(AnyProj x) ->
     AnyRec $ proj x demo
 
-proxyOf :: t -> Proxy t
-proxyOf _ = Proxy
-
-runInAny ::
-    forall (x :: [Symbol]). (HasProj x SomeType, Typeable x)
-    => (AnyProj -> AnyRec) -> Projection SomeType x -> Rec SomeType x
-runInAny go pp =
-    case go (AnyProj pp) of
-      AnyRec r ->
-          case cast r of
-            Just (rt :: Rec SomeType x) -> rt
-            Nothing -> error "OH SHIT!"
-
-dc2 :: DummyComp AnyProj AnyRec -> DummyCompDef Int Bool
+dc2 :: DummyComp (AnyProj SomeType) (AnyRec SomeType) -> DummyCompDef Int Bool
 dc2 (DummyComp go) = DummyCompDef $ \_ ->
-    projVal #st_bar $ runInAny go (#st_bar @@ ProjNil)
+    projVal #st_bar $ anyToTypedProj go (#st_bar @@ ProjNil)
 
-{-
-    case go (AnyProj getBoth) of
-      AnyRec (r :: Rec SomeType x) ->
-          case cast r of
-            Just (rt :: Rec SomeType '["st_foo", "st_bar", "st_custom"]) -> projVal #st_bar rt
-            Nothing -> error "OH SHIT!"
--}
-{-
-          case eqT of
-            Just (Refl :: '["st_foo", "st_bar", "st_custom"] :~: x) -> projVal #st_bar r
-            Nothing -> error "OH SHIT!"
--}
-fooFun :: IO ()
+fooFun :: IO Bool
 fooFun =
     do d1 <- evalRec dc1
-       _ <- evalRec (dc2 d1)
-       pure ()
+       (DummyComp d2) <- evalRec (dc2 d1)
+       pure (d2 12)

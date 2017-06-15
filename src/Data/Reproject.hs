@@ -21,7 +21,10 @@ module Data.Reproject
     , HasProj
     , proj, projVal
     , (@@)
-      -- * Helpers
+      -- * Type lifting
+    , AnyProj(..), AnyRec(..)
+    , runAnyProj, anyToTypedProj, anyToTypedProjM
+      -- * Internal helpers
     , LblProxy(..), ReadRec(..), RecValTy, IsEqLabel, Rec(..)
     )
 where
@@ -174,3 +177,36 @@ projVal l r =
     let stop :: Proxy (IsEqLabel key label)
         stop = Proxy
     in projVal' l stop r
+
+data AnyProj t
+    = forall x. (Typeable x, HasProj x t) =>
+    AnyProj
+    { unAnyProj :: Projection t x }
+
+data AnyRec t
+    = forall x. Typeable x =>
+    AnyRec
+    { unAnyRec :: Rec t x }
+
+runAnyProj :: t -> AnyProj t -> AnyRec t
+runAnyProj ty (AnyProj p) =
+    AnyRec $ proj p ty
+
+anyToTypedProj ::
+    forall t (x :: [Symbol]). (HasProj x t, Typeable x, Typeable t)
+    => (AnyProj t -> AnyRec t) -> Projection t x -> Rec t x
+anyToTypedProj go pp =
+    case go (AnyProj pp) of
+      AnyRec r ->
+          case cast r of
+            Just (rt :: Rec t x) -> rt
+            Nothing -> error "Reproject: This should never happen"
+
+anyToTypedProjM ::
+    forall m t (x :: [Symbol]). (Monad m, HasProj x t, Typeable x, Typeable t)
+    => (AnyProj t -> m (AnyRec t)) -> Projection t x -> m (Rec t x)
+anyToTypedProjM go pp =
+    go (AnyProj pp) >>= \(AnyRec r) ->
+    case cast r of
+       Just (rt :: Rec t x) -> pure rt
+       Nothing -> fail "Reproject: This should never happen"
