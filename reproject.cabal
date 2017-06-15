@@ -18,7 +18,6 @@ library
   exposed-modules:     Data.Reproject
                      , Data.Reproject.TH
   build-depends:       base >= 4.9 && < 5
-                     , labels >= 0.3
                      , template-haskell >= 2.11
   default-language:    Haskell2010
   ghc-options:         -Wall
