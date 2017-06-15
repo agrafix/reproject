@@ -37,6 +37,9 @@ instance Proj "st_foo" Int SomeType where
 instance Proj "st_bar" Bool SomeType where
     applyProj Proxy = st_bar
 
+instance Proj "st_custom" Bool SomeType where
+    applyProj Proxy = not . st_bar
+
 type family Append (a :: [k]) (b :: [k]) where
     Append x '[] = x
     Append '[] x = x
@@ -72,8 +75,8 @@ proj = loadFields
 getOne :: Projection SomeType '["st_foo"] '[Int]
 getOne = Project #st_foo
 
-getBoth :: Projection SomeType '["st_foo", "st_bar"] '[Int, Bool]
-getBoth = Combine #st_foo (Project #st_bar)
+getBoth :: Projection SomeType '["st_foo", "st_bar", "st_custom"] '[Int, Bool, Bool]
+getBoth = Combine #st_foo (Combine #st_bar (Project #st_custom))
 
 demo :: SomeType
 demo =
@@ -85,3 +88,4 @@ demo =
 test1 = get #st_foo $ proj demo getOne
 test2 = get #st_foo $ proj demo getBoth
 test3 = get #st_bar $ proj demo getBoth
+test4 = get #st_custom $ proj demo getBoth
