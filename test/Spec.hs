@@ -21,9 +21,6 @@ instance Proj "st_custom" SomeType where
     type ProjVal "st_custom" SomeType = Bool
     applyProj Proxy = not . st_bar
 
-type GetOne = Projection SomeType '["st_foo"]
-type GetBoth = Projection SomeType '["st_foo", "st_bar", "st_custom"]
-
 getOne :: Projection SomeType '["st_foo"]
 getOne = #st_foo @@ ProjNil
 
