@@ -17,14 +17,13 @@ data SomeType
 
 $(deriveFieldProjections ''SomeType)
 
-instance Proj "st_custom" SomeType where
-    type ProjVal "st_custom" SomeType = Bool
-    applyProj Proxy = not . st_bar
+instance Proj "st_custom" Bool SomeType where
+    applyProj LblProxy = not . st_bar
 
-getOne :: Projection SomeType '["st_foo"]
+getOne :: Projection SomeType '["st_foo"] '[Int]
 getOne = #st_foo @@ ProjNil
 
-getBoth :: Projection SomeType '["st_foo", "st_bar", "st_custom"]
+getBoth :: Projection SomeType '["st_foo", "st_bar", "st_custom"] '[Int, Bool, Bool]
 getBoth = #st_foo @@ #st_bar @@ #st_custom @@ ProjNil
 
 demo :: SomeType
